@@ -114,6 +114,7 @@ async function handleCommands(commands, users, userMessage) {
             start = Date.now();
         }
         if (command.dm) {
+            let user = users.find(a => a.global_name == command.dm.user);
             if (exclude.includes(users.find(a => a.global_name == a))) return;
             command.dm.message = cleanMessage(command.dm.message, users);
             let channel = await getUserChannel(user.id);
