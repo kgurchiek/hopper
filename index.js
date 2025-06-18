@@ -399,11 +399,36 @@ ws.on('message', async (data) => {
             if (!data.d.guild_id || data.d.mentions.find(a => a.id == user.id) || randomReply) {
                 let commands;
                 while (!commands) {
-                    let currentMessage = data.d;
-                    let messages = [currentMessage];
-                    while (messages.length < maxMessages && currentMessage.referenced_message) {
-                        currentMessage = await getMessage(currentMessage.guild_id, currentMessage.channel_id, currentMessage.referenced_message.id);
-                        messages.push(currentMessage);
+                    let messages = [data.d];
+                    if (data.d.guild_id) {
+                        let currentMessage = data.d;
+                        while (messages.length < maxMessages && currentMessage.referenced_message) {
+                            currentMessage = await getMessage(currentMessage.guild_id, currentMessage.channel_id, currentMessage.referenced_message.id);
+                            messages.push(currentMessage);
+                        }
+                    } else {
+                        let response = await fetch(`https://discord.com/api/v9/channels/${data.d.channel_id}/messages?before=${data.d.id}&limit=50`, {
+                            credentials: 'include',
+                            headers: {
+                                'User-Agent': userAgent,
+                                Accept: '*/*',
+                                'Accept-Language': 'en-US,en;q=0.5',
+                                'Content-Type': 'application/json',
+                                'Authorization': token,
+                                'X-Super-Properties': superProperties,
+                                'X-Discord-Locale': 'en-US',
+                                'X-Discord-Timezone': 'America/New_York',
+                                'X-Debug-Options': 'bugReporterEnabled',
+                                'Sec-GPC': '1',
+                                'Sec-Fetch-Dest': 'empty',
+                                'Sec-Fetch-Mode': 'cors',
+                                'Sec-Fetch-Site': 'same-origin'
+                            },
+                            referrer: `https://discord.com/channels/@me/${data.d.channel_id}`,
+                            method: 'GET',
+                            mode: 'cors'
+                        });
+                        if (response.status == 200) messages = messages.concat((await response.json()).slice(0, 15));
                     }
                     messages.reverse();
                     let users = [user];
@@ -431,16 +456,15 @@ ws.on('message', async (data) => {
                     Accept: '*/*',
                     'Accept-Language': 'en-US,en;q=0.5',
                     'Content-Type': 'application/json',
-                    'X-Context-Properties': 'eyJsb2NhdGlvbiI6IkZyaWVuZHMifQ==',
-                    Authorization: token,
-                    'X-Super-Properties': 'eyJvcyI6IldpbmRvd3MiLCJicm93c2VyIjoiRmlyZWZveCIsImRldmljZSI6IiIsInN5c3RlbV9sb2NhbGUiOiJlbi1VUyIsImJyb3dzZXJfdXNlcl9hZ2VudCI6Ik1vemlsbGEvNS4wIChXaW5kb3dzIE5UIDEwLjA7IFdpbjY0OyB4NjQ7IHJ2OjEzMC4wKSBHZWNrby8yMDEwMDEwMSBGaXJlZm94LzEzMC4wIiwiYnJvd3Nlcl92ZXJzaW9uIjoiMTMwLjAiLCJvc192ZXJzaW9uIjoiMTAiLCJyZWZlcnJlciI6IiIsInJlZmVycmluZ19kb21haW4iOiIiLCJyZWZlcnJlcl9jdXJyZW50IjoiIiwicmVmZXJyaW5nX2RvbWFpbl9jdXJyZW50IjoiIiwicmVsZWFzZV9jaGFubmVsIjoic3RhYmxlIiwiY2xpZW50X2J1aWxkX251bWJlciI6MzMxMDIzLCJjbGllbnRfZXZlbnRfc291cmNlIjpudWxsfQ==',
+                    'Authorization': token,
+                    'X-Super-Properties': superProperties,
                     'X-Discord-Locale': 'en-US',
                     'X-Discord-Timezone': 'America/New_York',
                     'X-Debug-Options': 'bugReporterEnabled',
+                    'Sec-GPC': '1',
                     'Sec-Fetch-Dest': 'empty',
                     'Sec-Fetch-Mode': 'cors',
-                    'Sec-Fetch-Site': 'same-origin',
-                    Priority: 'u=0'
+                    'Sec-Fetch-Site': 'same-origin'
                 },
                 referrer: 'https://discord.com/channels/@me',
                 body: JSON.stringify({}),
