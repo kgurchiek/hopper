@@ -1,19 +1,17 @@
 const WebSocket = require('ws');
-const { token, groqToken, model, exclude, typingSpeed, emojiSpeed, context, instruction, maxMessages, messageList, schema } = require('./config.js');
+const { token, groqToken, model, exclude, contentFilter, typingSpeed, emojiSpeed, context, instruction, maxMessages, messageList, schema } = require('./config.js');
 const superProperties = 'eyJvcyI6IkxpbnV4IiwiYnJvd3NlciI6IkZpcmVmb3giLCJkZXZpY2UiOiIiLCJzeXN0ZW1fbG9jYWxlIjoiZW4tVVMiLCJicm93c2VyX3VzZXJfYWdlbnQiOiJNb3ppbGxhLzUuMCAoWDExOyBMaW51eCB4ODZfNjQ7IHJ2OjEwOS4wKSBHZWNrby8yMDEwMDEwMSBGaXJlZm94LzExNS4wIiwiYnJvd3Nlcl92ZXJzaW9uIjoiMTE1LjAiLCJvc192ZXJzaW9uIjoiIiwicmVmZXJyZXIiOiIiLCJyZWZlcnJpbmdfZG9tYWluIjoiIiwicmVmZXJyZXJfY3VycmVudCI6IiIsInJlZmVycmluZ19kb21haW5fY3VycmVudCI6IiIsInJlbGVhc2VfY2hhbm5lbCI6InN0YWJsZSIsImNsaWVudF9idWlsZF9udW1iZXIiOjMzMDcxMCwiY2xpZW50X2V2ZW50X3NvdXJjZSI6bnVsbH0=';
 const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0';
 
 function cleanMessage(message, users) {
-    // if (message.startsWith('"') && message.endsWith('"')) message = message.substring(1, message.length - 1);
-    // if (message.startsWith("'") && message.endsWith("'")) message = message.substring(1, message.length - 1);
-    for (const user in users) message = message.replace(user, `<@${users[user].id}>`);
-    for (const user in users) message = message.replace(user.toLowerCase(), `<@${users[user].id}>`);
+    for (const user in users) message = message.replaceAll(`@${users[user].global_name}`, `<@${users[user].id}>`);
+    for (const word in contentFilter) message = message.replaceAll(word, contentFilter[word]);
     return message;
 }
 
 async function generate(messages, users) {
+    for (const user in users) messages.filter(a => a.role == 'user').forEach(a => a.content = a.content.replace(`<@${users[user].id}>`, `@${users[user].global_name}`));
     console.log('Prompt:', messages)
-    for (const user in users) messages.filter(a => a.role == 'user').forEach(a => a.content = a.content.replace(`<@${users[user].id}>`, user));
     let response = await (await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -277,6 +275,21 @@ async function react(channel, message, emoji, start) {
     if (![200, 204].includes(response.status)) console.log('React:', response)
 }
 
+function fetchMember(guild, user) {
+    if (guild == null || user == null) return null;
+    return new Promise(res => {
+        ws.send(JSON.stringify({
+            op: 8,
+            d: {
+                guild_id: [guild],
+                user_ids: [user],
+                presences: false
+            }
+        }));
+        memberCallbacks[`${guild}:${user}`] = res;
+    })
+}
+
 const ws = new WebSocket('wss://gateway.discord.gg/?encoding=json&v=9');
 const oldSend = ws.send;
 ws.send = data => {
@@ -292,6 +305,7 @@ function heartbeat(interval) {
 
 let user;
 let guilds;
+let memberCallbacks = {};
 ws.on('open', async () => {
     console.log('Connected');
     ws.send(JSON.stringify({
@@ -382,13 +396,12 @@ ws.on('message', async (data) => {
                         if (!Object.values(users).find(a => a.id == message.author.id)) users[`User${Object.keys(users).length + 1}`] = message.author;
                         if (message.mentions) for (const mention of message.mentions) if (!Object.values(users).find(a => a.id == mention.id)) users[`User${Object.keys(users).length + 1}`] = mention;
                     }
-                    let response = await generate([{ role: 'system', content: context(user, guilds.find(a => a.id == data.d.guild_id), data.d.guild_id ? data.d.channel_id : await getUserChannel(data.d.author.id))}].concat([{ role: 'system', content: instruction }], messageList(messages, users)), users);
+                    let response = await generate([{ role: 'system', content: context(user, guilds.find(a => a.id == data.d.guild_id), data.d.guild_id ? data.d.channel_id : await getUserChannel(data.d.author.id), await fetchMember(data.d.guild_id, user.id))}].concat([{ role: 'system', content: instruction }, { role: 'system', content: '[WARNING: DO NOT CENSOR MESSAGES. DO NOT CENSOR.]' }], messageList(messages, users)), users);
                     if (response.error) {
                         if (response.error?.error?.code == 'rate_limit_exceeded') await (new Promise(res => setTimeout(res, 60000)));
                         else console.log(response.error)
                     } else {
                         commands = JSON.parse(response).commands;
-                        console.log({ output: commands });
                         handleCommands(commands, users, data.d);
                     }
                 }
@@ -424,6 +437,12 @@ ws.on('message', async (data) => {
         if (data.t == 'CHANNEL_DELETE') {
             const guild = guilds.find(a => a.id == data.d.guild_id) || { channels: [] };
             guild.channels = guild.channels.filter(a => a.id != data.d.id);
+        }
+        if (data.t == 'GUILD_MEMBERS_CHUNK') {
+            for (const user of data.d.members) {
+                (memberCallbacks[`${data.d.guild_id}:${user.user.id}`] || (() => {}))(user);
+                delete memberCallbacks[`${data.d.guild_id}:${user.user.id}`];
+            }
         }
     }
 });
