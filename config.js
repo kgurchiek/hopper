@@ -1,8 +1,13 @@
 module.exports = {
     token: '',
+    webhooks: {
+        dm: '',
+        mention: '',
+        random: ''
+    },
     groqToken: '',
     model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-    exclude: [],
+    exclude: [''], // for users that don't want the bot to talk to them
     contentFilter: {
         'shit': 's\\*\\*\\*'
     },
@@ -21,7 +26,7 @@ module.exports = {
         return messages.map(a => ({
             role: 'user',
             name: a.author.global_name,
-            content: `{ id: ${a.id}, content: ${JSON.stringify(a.content)} }`
+            content: `{ id: ${a.id}, name: ${a.author.global_name}, content: ${JSON.stringify(a.content)} }`
         }));
     },
     schema: {
@@ -66,7 +71,7 @@ module.exports = {
                             type: 'object',
                             properties: {
                                 user: {
-                                    description: 'User2, User3, etc',
+                                    description: 'User\'s name',
                                     type: 'string'
                                 },
                                 message: {

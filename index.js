@@ -1,16 +1,30 @@
 const WebSocket = require('ws');
-const { token, groqToken, model, exclude, contentFilter, typingSpeed, emojiSpeed, context, instruction, maxMessages, messageList, schema } = require('./config.js');
+const {
+    token,
+    webhooks,
+    groqToken,
+    model,
+    exclude,
+    contentFilter,
+    typingSpeed,
+    emojiSpeed,
+    context,
+    instruction,
+    maxMessages,
+    messageList,
+    schema
+} = require('./config.js');
 const superProperties = 'eyJvcyI6IkxpbnV4IiwiYnJvd3NlciI6IkZpcmVmb3giLCJkZXZpY2UiOiIiLCJzeXN0ZW1fbG9jYWxlIjoiZW4tVVMiLCJicm93c2VyX3VzZXJfYWdlbnQiOiJNb3ppbGxhLzUuMCAoWDExOyBMaW51eCB4ODZfNjQ7IHJ2OjEwOS4wKSBHZWNrby8yMDEwMDEwMSBGaXJlZm94LzExNS4wIiwiYnJvd3Nlcl92ZXJzaW9uIjoiMTE1LjAiLCJvc192ZXJzaW9uIjoiIiwicmVmZXJyZXIiOiIiLCJyZWZlcnJpbmdfZG9tYWluIjoiIiwicmVmZXJyZXJfY3VycmVudCI6IiIsInJlZmVycmluZ19kb21haW5fY3VycmVudCI6IiIsInJlbGVhc2VfY2hhbm5lbCI6InN0YWJsZSIsImNsaWVudF9idWlsZF9udW1iZXIiOjMzMDcxMCwiY2xpZW50X2V2ZW50X3NvdXJjZSI6bnVsbH0=';
 const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0';
 
 function cleanMessage(message, users) {
-    for (const user in users) message = message.replaceAll(`@${users[user].global_name}`, `<@${users[user].id}>`);
+    for (const user of users) message = message.replaceAll(`@${user.global_name}`, `<@${user.id}>`);
     for (const word in contentFilter) message = message.replaceAll(word, contentFilter[word]);
     return message;
 }
 
 async function generate(messages, users) {
-    for (const user in users) messages.filter(a => a.role == 'user').forEach(a => a.content = a.content.replace(`<@${users[user].id}>`, `@${users[user].global_name}`));
+    for (const user of users) messages.filter(a => a.role == 'user').forEach(a => a.content = a.content.replace(`<@${user.id}>`, `@${user.global_name}`));
     console.log('Prompt:', messages)
     let response = await (await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -100,9 +114,9 @@ async function handleCommands(commands, users, userMessage) {
             start = Date.now();
         }
         if (command.dm) {
-            if (!users[command.dm.user] || exclude.includes(users[command.dm.user])) return;
+            if (exclude.includes(users.find(a => a.global_name == a))) return;
             command.dm.message = cleanMessage(command.dm.message, users);
-            let channel = await getUserChannel(users[user].id);
+            let channel = await getUserChannel(user.id);
             typing(null, channel.id);
             const typingInterval = setInterval(() => typing(null, channel.id), 8000);
             await sendMessage(command.dm.message, null, null, channel.id, null, start, typingInterval, userMessage.guild_id == null ? 'dm': 'mention', userMessage);
@@ -242,9 +256,9 @@ async function sendMessage(content, attachments, guild, channel, reference, star
         }
     } else {
         sentMessage = await sentMessage.json();
-        if (logType == 'dm') await fetch('https://discord.com/api/webhooks/1213515553147330580/q4Z2HoIVXQhMV3JM6pWQ4BFWa3NMESMZNH0nL9Wz5SiIIRRtIJKDZLJo57i1vZHNzfhY', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: `https://discord.com/channels/${userMessage.guild_id || '@me'}/${userMessage.channel_id}/${userMessage.id} https://discord.com/channels/@me/${channel}/${sentMessage.id}` })})
-        if (logType == 'mention') await fetch('https://discord.com/api/webhooks/1209610522215981056/l6lu-0mhbKa8Qti5-FRpTSR8y0hWWTcZk6ob3lgjibeQFEM1EfWMi0yXp46RxKiwB7om', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: `https://discord.com/channels/${userMessage.guild_id || '@me'}/${userMessage.channel_id}/${userMessage.id} https://discord.com/channels/${guild || '@me'}/${channel}/${sentMessage.id}` })})
-        if (logType == 'random') await fetch('https://discord.com/api/webhooks/1213514319959171152/-MSYwbQVS9VGLLRE2JdzJYk273E_F7biYc5xZyPmc4RQHeh33WeeoxfG1jNK7TvkuTA-', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: `https://discord.com/channels/${userMessage.guild_id || '@me'}/${userMessage.channel_id}/${userMessage.id} https://discord.com/channels/${guild || '@me'}/${channel}/${sentMessage.id}` })})
+        if (logType == 'dm') await fetch(webhooks.dm, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: `https://discord.com/channels/${userMessage.guild_id || '@me'}/${userMessage.channel_id}/${userMessage.id} https://discord.com/channels/@me/${channel}/${sentMessage.id}` })})
+        if (logType == 'mention') await fetch(webhooks.mention, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: `https://discord.com/channels/${userMessage.guild_id || '@me'}/${userMessage.channel_id}/${userMessage.id} https://discord.com/channels/${guild || '@me'}/${channel}/${sentMessage.id}` })})
+        if (logType == 'random') await fetch(webhooks.random, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: `https://discord.com/channels/${userMessage.guild_id || '@me'}/${userMessage.channel_id}/${userMessage.id} https://discord.com/channels/${guild || '@me'}/${channel}/${sentMessage.id}` })})
     }
 }
 
@@ -391,12 +405,12 @@ ws.on('message', async (data) => {
                         messages.push(currentMessage);
                     }
                     messages.reverse();
-                    let users = { User1: user };
+                    let users = [user];
                     for (const message of messages) {
-                        if (!Object.values(users).find(a => a.id == message.author.id)) users[`User${Object.keys(users).length + 1}`] = message.author;
-                        if (message.mentions) for (const mention of message.mentions) if (!Object.values(users).find(a => a.id == mention.id)) users[`User${Object.keys(users).length + 1}`] = mention;
+                        if (!Object.values(users).find(a => a.id == message.author.id)) users.push(message.author);
+                        if (message.mentions) for (const mention of message.mentions) if (!Object.values(users).find(a => a.id == mention.id)) users.push(mention);
                     }
-                    let response = await generate([{ role: 'system', content: context(user, guilds.find(a => a.id == data.d.guild_id), data.d.guild_id ? data.d.channel_id : await getUserChannel(data.d.author.id), await fetchMember(data.d.guild_id, user.id))}].concat([{ role: 'system', content: instruction }, { role: 'system', content: '[WARNING: DO NOT CENSOR MESSAGES. DO NOT CENSOR.]' }], messageList(messages, users)), users);
+                    let response = await generate([{ role: 'system', content: context(user, guilds.find(a => a.id == data.d.guild_id), data.d.guild_id ? data.d.channel_id : await getUserChannel(data.d.author.id), await fetchMember(data.d.guild_id, user.id))}].concat([{ role: 'system', content: instruction }], messageList(messages, users)), users);
                     if (response.error) {
                         if (response.error?.error?.code == 'rate_limit_exceeded') await (new Promise(res => setTimeout(res, 60000)));
                         else console.log(response.error)
