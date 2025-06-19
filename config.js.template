@@ -26,7 +26,17 @@ module.exports = {
         return messages.map(a => ({
             role: 'user',
             name: a.author.global_name,
-            content: `{ id: ${a.id}, name: ${a.author.global_name}, content: ${JSON.stringify(a.content)} }`
+            content: [
+                {
+                    type: 'text',
+                    text: `{ id: ${a.id}, name: ${a.author.global_name}, content: ${JSON.stringify(a.content)} }`
+                }
+            ].concat(a.attachments.map(a => ({
+                type: 'image_url',
+                image_url: {
+                    url: a.url
+                }
+            })))
         }));
     },
     schema: {

@@ -20,6 +20,7 @@ const headers = {
     'User-Agent': userAgent,
     Accept: '*/*',
     'Accept-Language': 'en-US,en;q=0.5',
+    'Content-Type': 'application/json',
     Authorization: token,
     'X-Super-Properties': superProperties,
     'X-Discord-Locale': 'en-US',
@@ -38,7 +39,7 @@ function cleanMessage(message, users) {
 }
 
 async function generate(messages, users) {
-    for (const user of users) messages.filter(a => a.role == 'user').forEach(a => a.content = a.content.replace(`<@${user.id}>`, `@${user.global_name}`));
+    for (const user of users) messages.filter(a => a.role == 'user').forEach(a => a.content[0].text = a.content[0].text.replace(`<@${user.id}>`, `@${user.global_name}`));
     console.log('Prompt:', messages)
     let response = await (await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -65,8 +66,8 @@ async function generate(messages, users) {
     }
 }
 
-async function upload(data, name) {
-    let response = await fetch('https://discord.com/api/v9/channels/1289641480822194248/attachments', {
+async function upload(data, name, channel) {
+    let response = await fetch(`https://discord.com/api/v9/channels/${channel}/attachments`, {
         credentials: 'include',
         headers,
         body: JSON.stringify({ files: [{ filename: name, file_size: data.length, id: '1', is_clip: false }]}),
@@ -196,7 +197,7 @@ async function sendMessage(content, attachments, guild, channel, reference, star
     });
     if (sentMessage.status != 200) {
         const error = await sentMessage.json();
-        console.error('Message:', sentMessage.status, JSON.stringify(error, '', '    '), guild, channel);
+        console.error('Message:', sentMessage.status, JSON.stringify(error, '', '    '), guild, channel, '\n', body);
         if (sentMessage.status == 429) {
             console.log(`Retrying in ${error.retry_after} seconds...`);
             setTimeout(() => sendMessage(content, attachments, guild, channel, reference, null, null, logType, userMessage), error.retry_after * 1000);
@@ -324,9 +325,9 @@ ws.on('message', async (data) => {
         }
         if (data.t == 'MESSAGE_CREATE') {
             if (data.d.author.id == user.id || exclude.includes(data.d.author.id)) return;
-            //console.log(data.d);
             let randomReply = Math.random() < 0.0005;
             if (!data.d.guild_id || data.d.mentions.find(a => a.id == user.id) || randomReply) {
+                // console.log(data.d);
                 let commands;
                 while (!commands) {
                     let messages = [data.d];
