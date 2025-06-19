@@ -16,6 +16,20 @@ const {
 } = require('./config.js');
 const superProperties = 'eyJvcyI6IkxpbnV4IiwiYnJvd3NlciI6IkZpcmVmb3giLCJkZXZpY2UiOiIiLCJzeXN0ZW1fbG9jYWxlIjoiZW4tVVMiLCJicm93c2VyX3VzZXJfYWdlbnQiOiJNb3ppbGxhLzUuMCAoWDExOyBMaW51eCB4ODZfNjQ7IHJ2OjEwOS4wKSBHZWNrby8yMDEwMDEwMSBGaXJlZm94LzExNS4wIiwiYnJvd3Nlcl92ZXJzaW9uIjoiMTE1LjAiLCJvc192ZXJzaW9uIjoiIiwicmVmZXJyZXIiOiIiLCJyZWZlcnJpbmdfZG9tYWluIjoiIiwicmVmZXJyZXJfY3VycmVudCI6IiIsInJlZmVycmluZ19kb21haW5fY3VycmVudCI6IiIsInJlbGVhc2VfY2hhbm5lbCI6InN0YWJsZSIsImNsaWVudF9idWlsZF9udW1iZXIiOjMzMDcxMCwiY2xpZW50X2V2ZW50X3NvdXJjZSI6bnVsbH0=';
 const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0';
+const headers = {
+    'User-Agent': userAgent,
+    Accept: '*/*',
+    'Accept-Language': 'en-US,en;q=0.5',
+    Authorization: token,
+    'X-Super-Properties': superProperties,
+    'X-Discord-Locale': 'en-US',
+    'X-Discord-Timezone': 'America/New_York',
+    'X-Debug-Options': 'bugReporterEnabled',
+    'Alt-Used': 'discord.com',
+    'Sec-Fetch-Dest': 'empty',
+    'Sec-Fetch-Mode': 'cors',
+    'Sec-Fetch-Site': 'same-origin'
+}
 
 function cleanMessage(message, users) {
     for (const user of users) message = message.replaceAll(`@${user.global_name}`, `<@${user.id}>`);
@@ -54,21 +68,7 @@ async function generate(messages, users) {
 async function upload(data, name) {
     let response = await fetch('https://discord.com/api/v9/channels/1289641480822194248/attachments', {
         credentials: 'include',
-        headers: {
-            'User-Agent': userAgent,
-            Accept: '*/*',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Content-Type': 'application/json',
-            'Authorization': token,
-            'X-Super-Properties': superProperties,
-            'X-Discord-Locale': 'en-US',
-            'X-Discord-Timezone': 'America/New_York',
-            'X-Debug-Options': 'bugReporterEnabled',
-            'Sec-GPC': '1',
-            'Sec-Fetch-Dest': 'empty',
-            'Sec-Fetch-Mode': 'cors',
-            'Sec-Fetch-Site': 'same-origin'
-        },
+        headers,
         body: JSON.stringify({ files: [{ filename: name, file_size: data.length, id: '1', is_clip: false }]}),
         method: 'POST',
         mode: 'cors'
@@ -142,20 +142,7 @@ async function handleCommands(commands, users, userMessage) {
 function typing(guild, channel) {
     fetch(`https://discord.com/api/v9/channels/${channel}/typing`, {
         credentials: 'include',
-        headers: {
-                'User-Agent': userAgent,
-                Accept: '*/*',
-                'Accept-Language': 'en-US,en;q=0.5',
-                Authorization: token,
-                'X-Super-Properties': superProperties,
-                'X-Discord-Locale': 'en-US',
-                'X-Discord-Timezone': 'America/New_York',
-                'X-Debug-Options': 'bugReporterEnabled',
-                'Alt-Used': 'discord.com',
-                'Sec-Fetch-Dest': 'empty',
-                'Sec-Fetch-Mode': 'cors',
-                'Sec-Fetch-Site': 'same-origin'
-        },
+        headers,
         referrer: `https://discord.com/channels/${guild || '@me'}/${channel}`,
         method: 'POST',
         mode: 'cors'
@@ -164,22 +151,8 @@ function typing(guild, channel) {
 
 async function getUserChannel(id) {
     return await (await fetch('https://discord.com/api/v9/users/@me/channels', {
-        'credentials': 'include',
-        headers: {
-        'User-Agent': userAgent,
-        Accept: '*/*',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Content-Type': 'application/json',
-        Authorization: token,
-        'X-Super-Properties': superProperties,
-        'X-Discord-Locale': 'en-US',
-        'X-Discord-Timezone': 'America/New_York',
-        'X-Debug-Options': 'bugReporterEnabled',
-        'Alt-Used': 'discord.com',
-        'Sec-Fetch-Dest': 'empty',
-        'Sec-Fetch-Mode': 'cors',
-        'Sec-Fetch-Site': 'same-origin'
-    },
+        credentials: 'include',
+        headers,
         body: JSON.stringify({recipients: [id]}),
         method: 'POST',
         mode: 'cors'
@@ -189,20 +162,7 @@ async function getUserChannel(id) {
 async function getMessage(guild, channel, id) {
     const response = await fetch(`https://discord.com/api/v9/channels/${channel}/messages?limit=1&around=${id}`, {
         credentials: 'include',
-        headers: {
-            'User-Agent': userAgent,
-            Accept: '*/*',
-            'Accept-Language': 'en-US,en;q=0.5',
-            Authorization: token,
-            'X-Super-Properties': superProperties,
-            'X-Discord-Locale': 'en-US',
-            'X-Discord-Timezone': 'America/New_York',
-            'X-Debug-Options': 'bugReporterEnabled',
-            'Alt-Used': 'discord.com',
-            'Sec-Fetch-Dest': 'empty',
-            'Sec-Fetch-Mode': 'cors',
-            'Sec-Fetch-Site': 'same-origin'
-        },
+        headers,
         referrer: `https://discord.com/channels/${guild || '@me'}/${channel}`,
         method: 'GET',
         mode: 'cors'
@@ -228,21 +188,7 @@ async function sendMessage(content, attachments, guild, channel, reference, star
     if (attachments) body.attachments = attachments;
     let sentMessage = await fetch(`https://discord.com/api/v9/channels/${channel}/messages`, {
         credentials: 'include',
-        headers: {
-            'User-Agent': userAgent,
-            Accept: '*/*',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Content-Type': 'application/json',
-            Authorization: token,
-            'X-Super-Properties': superProperties,
-            'X-Discord-Locale': 'en-US',
-            'X-Discord-Timezone': 'America/New_York',
-            'X-Debug-Options': 'bugReporterEnabled',
-            'Alt-Used': 'discord.com',
-            'Sec-Fetch-Dest': 'empty',
-            'Sec-Fetch-Mode': 'cors',
-            'Sec-Fetch-Site': 'same-origin'
-        },
+        headers,
         referrer: `https://discord.com/channels/${guild || '@me'}/${channel}`,
         body: JSON.stringify(body),
         method: 'POST',
@@ -267,23 +213,7 @@ async function react(channel, message, emoji, start) {
     if (start) while (Date.now() - start < emojiSpeed) {}
     const response = await fetch(`https://discord.com/api/v9/channels/${channel}/messages/${message}/reactions/${encodeURIComponent(emoji)}/%40me`, {
         credentials: 'include',
-        headers: {
-            'User-Agent': userAgent,
-            Accept: '*/*',
-            'Accept-Language': 'en-US,en;q=0.5',
-            Authorization: token,
-            'X-Super-Properties': superProperties,
-            'X-Discord-Locale': 'en-US',
-            'X-Discord-Timezone': 'America/New_York',
-            'X-Debug-Options': 'bugReporterEnabled',
-            'Sec-GPC': '1',
-            'Sec-Fetch-Dest': 'empty',
-            'Sec-Fetch-Mode': 'no-cors',
-            'Sec-Fetch-Site': 'same-origin',
-            Priority: 'u=0',
-            Pragma: 'no-cache',
-            'Cache-Control': 'no-cache'
-        },
+        headers,
         method: 'PUT',
         mode: 'cors'
     });
@@ -409,21 +339,7 @@ ws.on('message', async (data) => {
                     } else {
                         let response = await fetch(`https://discord.com/api/v9/channels/${data.d.channel_id}/messages?before=${data.d.id}&limit=50`, {
                             credentials: 'include',
-                            headers: {
-                                'User-Agent': userAgent,
-                                Accept: '*/*',
-                                'Accept-Language': 'en-US,en;q=0.5',
-                                'Content-Type': 'application/json',
-                                'Authorization': token,
-                                'X-Super-Properties': superProperties,
-                                'X-Discord-Locale': 'en-US',
-                                'X-Discord-Timezone': 'America/New_York',
-                                'X-Debug-Options': 'bugReporterEnabled',
-                                'Sec-GPC': '1',
-                                'Sec-Fetch-Dest': 'empty',
-                                'Sec-Fetch-Mode': 'cors',
-                                'Sec-Fetch-Site': 'same-origin'
-                            },
+                            headers,
                             referrer: `https://discord.com/channels/@me/${data.d.channel_id}`,
                             method: 'GET',
                             mode: 'cors'
@@ -451,21 +367,7 @@ ws.on('message', async (data) => {
             await (new Promise(res => setTimeout(res, 10000 + Math.random() * 10000)));
             await fetch(`https://discord.com/api/v9/users/@me/relationships/${data.d.id}`, {
                 credentials: 'include',
-                headers: {
-                    'User-Agent': userAgent,
-                    Accept: '*/*',
-                    'Accept-Language': 'en-US,en;q=0.5',
-                    'Content-Type': 'application/json',
-                    'Authorization': token,
-                    'X-Super-Properties': superProperties,
-                    'X-Discord-Locale': 'en-US',
-                    'X-Discord-Timezone': 'America/New_York',
-                    'X-Debug-Options': 'bugReporterEnabled',
-                    'Sec-GPC': '1',
-                    'Sec-Fetch-Dest': 'empty',
-                    'Sec-Fetch-Mode': 'cors',
-                    'Sec-Fetch-Site': 'same-origin'
-                },
+                headers,
                 referrer: 'https://discord.com/channels/@me',
                 body: JSON.stringify({}),
                 method: 'PUT',
