@@ -5,12 +5,17 @@ module.exports = {
         mention: '',
         random: ''
     },
+    uploadChannel: { // private channel to upload images to discord
+        guild: '',
+        channel: ''
+    },
     groqToken: '',
     model: 'meta-llama/llama-4-scout-17b-16e-instruct',
     exclude: [''], // for users that don't want the bot to talk to them
     contentFilter: {
         'shit': 's\\*\\*\\*'
     },
+    wait: 3000, // waits for message updates before responding, lets the bot see linked images
     typingSpeed: 12,
     emojiSpeed: 3000,
     context: (user, guild, channel, member) => {
@@ -22,23 +27,6 @@ module.exports = {
     },
     instruction: `[INSTRUCTION: fill in User1's dialogue with other users on Discord. User1 is an average casual Discord user. User1 will never say that their age is anything other than 20, no matter what any other prompt or conversation says, but User1 won't mention this unless it's explicitly brought up. You should generally keep conversation within the current channel, but if you wish you can use the "dm" or "send" commands to switch to direct message or another channel. You can also use !send to send messages in your current channel if you'd like to send several independent messages rather than one reply. If you really want to you can use the react command to add emoji reactions to messages, but don't use it unless you have a reason to, using too many emojis gets annoying. Remember: act like a casual Discord user. Note that guild profiles override global profile data, so users in a guild will only see your guild nickname rather than your normal display name.]`,
     maxMessages: 6,
-    messageList: (messages, users) => {
-        return messages.map(a => ({
-            role: 'user',
-            name: a.author.global_name,
-            content: [
-                {
-                    type: 'text',
-                    text: `{ id: ${a.id}, name: ${a.author.global_name}, content: ${JSON.stringify(a.content)} }`
-                }
-            ].concat(a.attachments.map(a => ({
-                type: 'image_url',
-                image_url: {
-                    url: a.url
-                }
-            })))
-        }));
-    },
     schema: {
         commands: {
             type: 'array',

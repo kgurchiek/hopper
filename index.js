@@ -1,28 +1,28 @@
 const WebSocket = require('ws');
+const gifwrap = require('gifwrap');
 const {
     token,
     webhooks,
+    uploadChannel,
     groqToken,
     model,
     exclude,
     contentFilter,
+    wait,
     typingSpeed,
     emojiSpeed,
     context,
     instruction,
     maxMessages,
-    messageList,
     schema
 } = require('./config.js');
-const superProperties = 'eyJvcyI6IkxpbnV4IiwiYnJvd3NlciI6IkZpcmVmb3giLCJkZXZpY2UiOiIiLCJzeXN0ZW1fbG9jYWxlIjoiZW4tVVMiLCJicm93c2VyX3VzZXJfYWdlbnQiOiJNb3ppbGxhLzUuMCAoWDExOyBMaW51eCB4ODZfNjQ7IHJ2OjEwOS4wKSBHZWNrby8yMDEwMDEwMSBGaXJlZm94LzExNS4wIiwiYnJvd3Nlcl92ZXJzaW9uIjoiMTE1LjAiLCJvc192ZXJzaW9uIjoiIiwicmVmZXJyZXIiOiIiLCJyZWZlcnJpbmdfZG9tYWluIjoiIiwicmVmZXJyZXJfY3VycmVudCI6IiIsInJlZmVycmluZ19kb21haW5fY3VycmVudCI6IiIsInJlbGVhc2VfY2hhbm5lbCI6InN0YWJsZSIsImNsaWVudF9idWlsZF9udW1iZXIiOjMzMDcxMCwiY2xpZW50X2V2ZW50X3NvdXJjZSI6bnVsbH0=';
-const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0';
 const headers = {
-    'User-Agent': userAgent,
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0',
     Accept: '*/*',
     'Accept-Language': 'en-US,en;q=0.5',
     'Content-Type': 'application/json',
     Authorization: token,
-    'X-Super-Properties': superProperties,
+    'X-Super-Properties': 'eyJvcyI6IkxpbnV4IiwiYnJvd3NlciI6IkZpcmVmb3giLCJkZXZpY2UiOiIiLCJzeXN0ZW1fbG9jYWxlIjoiZW4tVVMiLCJicm93c2VyX3VzZXJfYWdlbnQiOiJNb3ppbGxhLzUuMCAoWDExOyBMaW51eCB4ODZfNjQ7IHJ2OjEwOS4wKSBHZWNrby8yMDEwMDEwMSBGaXJlZm94LzExNS4wIiwiYnJvd3Nlcl92ZXJzaW9uIjoiMTE1LjAiLCJvc192ZXJzaW9uIjoiIiwicmVmZXJyZXIiOiIiLCJyZWZlcnJpbmdfZG9tYWluIjoiIiwicmVmZXJyZXJfY3VycmVudCI6IiIsInJlZmVycmluZ19kb21haW5fY3VycmVudCI6IiIsInJlbGVhc2VfY2hhbm5lbCI6InN0YWJsZSIsImNsaWVudF9idWlsZF9udW1iZXIiOjMzMDcxMCwiY2xpZW50X2V2ZW50X3NvdXJjZSI6bnVsbH0=',
     'X-Discord-Locale': 'en-US',
     'X-Discord-Timezone': 'America/New_York',
     'X-Debug-Options': 'bugReporterEnabled',
@@ -38,8 +38,38 @@ function cleanMessage(message, users) {
     return message;
 }
 
+async function messageList(messages) {
+    let imageCount = 0;
+    return await Promise.all(messages.reverse().map(async a => {
+        let images = await Promise.all(a.attachments.map(async b => ({
+            type: 'image_url',
+            image_url: {
+                url: b.content_type == 'image/gif' ? `data:image/jpeg;base64,${(await staticGif(b.proxy_url)).toString('base64')}` : b.proxy_url
+            }
+        })).concat(
+            a.embeds.filter(b => ['image', 'gifv'].includes(b.type)).map(async b => ({
+                type: 'image_url',
+                image_url: {
+                    url: b.thumbnail.content_type == 'image/gif' ? `data:image/jpeg;base64,${(await staticGif(b.thumbnail.proxy_url)).toString('base64')}` : b.thumbnail.proxy_url
+                }
+            }))
+        ).slice(0, 5 - imageCount));
+        imageCount += images.length;
+        return {
+            role: 'user',
+            name: a.author.global_name,
+            content: (a.content == '' ? [] : [
+                {
+                    type: 'text',
+                    text: `{ id: ${a.id}, name: ${a.author.global_name}, content: ${JSON.stringify(a.content)} }`
+                }
+            ]).concat(images)
+        }
+    }).reverse());
+}
+
 async function generate(messages, users) {
-    for (const user of users) messages.filter(a => a.role == 'user').forEach(a => a.content[0].text = a.content[0].text.replace(`<@${user.id}>`, `@${user.global_name}`));
+    for (const user of users) messages.filter(a => a.role == 'user' && a.content[0].text != null).forEach(a => a.content[0].text = a.content[0].text.replace(`<@${user.id}>`, `@${user.global_name}`));
     console.log('Prompt:', messages)
     let response = await (await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -74,7 +104,7 @@ async function upload(data, name, channel) {
         method: 'POST',
         mode: 'cors'
     });
-    if (response.status != 200) console.log('Attachment:', response.status, await response.getJSON());
+    if (response.status != 200) console.log('Attachment:', response.status, await response.json());
     else {
         response = await response.json();
         console.log(response)
@@ -99,9 +129,22 @@ async function upload(data, name, channel) {
     }
 }
 
+let gifCache = {};
+async function staticGif(url) {
+    let path = new URL(url).pathname;
+    if (gifCache[path] == null) {
+        let data = Buffer.from(await (await fetch(url)).arrayBuffer());
+        const codec = new gifwrap.GifCodec();
+        let test = await codec.decodeGif(data);
+        test.frames.length = 1;
+        gifCache[path] = (await codec.encodeGif(test.frames)).buffer;
+    }
+    return gifCache[path];
+}
+
 async function handleCommands(commands, users, userMessage) {
     console.log(commands);
-    let start = Date.now();
+    let start = Date.now() - wait;
     for (let command of commands) {
         if (command.reply) {
             command.reply.message = cleanMessage(command.reply.message, users);
@@ -112,7 +155,7 @@ async function handleCommands(commands, users, userMessage) {
                 'channel_id': userMessage.channel_id,
                 'message_id': userMessage.id
             }, start, typingInterval, userMessage.guild_id == null ? 'dm' : 'mention', userMessage);
-            start = Date.now();
+            start = Date.now() - wait;
         }
         if (command.dm) {
             let user = users.find(a => a.global_name == command.dm.user);
@@ -122,7 +165,7 @@ async function handleCommands(commands, users, userMessage) {
             typing(null, channel.id);
             const typingInterval = setInterval(() => typing(null, channel.id), 8000);
             await sendMessage(command.dm.message, null, null, channel.id, null, start, typingInterval, userMessage.guild_id == null ? 'dm': 'mention', userMessage);
-            start = Date.now();
+            start = Date.now() - wait;
         }
         if (command.send) {
             command.send.message = cleanMessage(command.send.message, users);
@@ -131,11 +174,11 @@ async function handleCommands(commands, users, userMessage) {
             typing(guild.id, command.send.channel);
             const typingInterval = setInterval(() => typing(guild.id, command.send.channel), 8000);
             await sendMessage(command.send.message, null, guild.id, command.send.channel, null, start, typingInterval, userMessage.guild_id == null ? 'dm' : 'mention', userMessage);
-            start = Date.now();
+            start = Date.now() - wait;
         }
         if (command.react) {
             await react(command.react.channel, command.react.message, command.react.emoji, start);
-            start = Date.now();
+            start = Date.now() - wait;
         }
     }
 }
@@ -207,6 +250,7 @@ async function sendMessage(content, attachments, guild, channel, reference, star
         if (logType == 'dm') await fetch(webhooks.dm, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: `https://discord.com/channels/${userMessage.guild_id || '@me'}/${userMessage.channel_id}/${userMessage.id} https://discord.com/channels/@me/${channel}/${sentMessage.id}` })})
         if (logType == 'mention') await fetch(webhooks.mention, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: `https://discord.com/channels/${userMessage.guild_id || '@me'}/${userMessage.channel_id}/${userMessage.id} https://discord.com/channels/${guild || '@me'}/${channel}/${sentMessage.id}` })})
         if (logType == 'random') await fetch(webhooks.random, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: `https://discord.com/channels/${userMessage.guild_id || '@me'}/${userMessage.channel_id}/${userMessage.id} https://discord.com/channels/${guild || '@me'}/${channel}/${sentMessage.id}` })})
+        return sentMessage;
     }
 }
 
@@ -252,6 +296,7 @@ function heartbeat(interval) {
 let user;
 let guilds;
 let memberCallbacks = {};
+let updates = {};
 ws.on('open', async () => {
     console.log('Connected');
     ws.send(JSON.stringify({
@@ -325,11 +370,21 @@ ws.on('message', async (data) => {
         }
         if (data.t == 'MESSAGE_CREATE') {
             if (data.d.author.id == user.id || exclude.includes(data.d.author.id)) return;
+            await new Promise(res => setTimeout(res, wait));
+            if (updates[data.d.id]) {
+                data.d = updates[data.d.id];
+                delete updates[data.d.id];
+            }
+        if (data.d.channel_id == '1370962471816265858') {
+            console.log(data.t, data.d.attachments, data.d.embeds)
+            // if (data.d.attachments[0]) console.log(await getPng(data.d.attachments[0].proxy_url))
+        }
             let randomReply = Math.random() < 0.0005;
             if (!data.d.guild_id || data.d.mentions.find(a => a.id == user.id) || randomReply) {
                 // console.log(data.d);
-                let commands;
-                while (!commands) {
+                let retry = true;
+                while (retry) {
+                    retry = false;
                     let messages = [data.d];
                     if (data.d.guild_id) {
                         let currentMessage = data.d;
@@ -353,14 +408,13 @@ ws.on('message', async (data) => {
                         if (!Object.values(users).find(a => a.id == message.author.id)) users.push(message.author);
                         if (message.mentions) for (const mention of message.mentions) if (!Object.values(users).find(a => a.id == mention.id)) users.push(mention);
                     }
-                    let response = await generate([{ role: 'system', content: context(user, guilds.find(a => a.id == data.d.guild_id), data.d.guild_id ? data.d.channel_id : await getUserChannel(data.d.author.id), await fetchMember(data.d.guild_id, user.id))}].concat([{ role: 'system', content: instruction }], messageList(messages, users)), users);
+                    let response = await generate([{ role: 'system', content: context(user, guilds.find(a => a.id == data.d.guild_id), data.d.guild_id ? data.d.channel_id : await getUserChannel(data.d.author.id), await fetchMember(data.d.guild_id, user.id))}].concat([{ role: 'system', content: instruction }], await messageList(messages)), users);
                     if (response.error) {
-                        if (response.error?.error?.code == 'rate_limit_exceeded') await (new Promise(res => setTimeout(res, 60000)));
-                        else console.log(response.error)
-                    } else {
-                        commands = JSON.parse(response).commands;
-                        handleCommands(commands, users, data.d);
-                    }
+                        if (response.error?.error?.code == 'rate_limit_exceeded') {
+                            retry = true;
+                            await (new Promise(res => setTimeout(res, 60000)));
+                        } else console.log(response.error);
+                    } else handleCommands(JSON.parse(response).commands, users, data.d);
                 }
             }
         }
@@ -385,6 +439,10 @@ ws.on('message', async (data) => {
                 (memberCallbacks[`${data.d.guild_id}:${user.user.id}`] || (() => {}))(user);
                 delete memberCallbacks[`${data.d.guild_id}:${user.user.id}`];
             }
+        }
+        if (data.t == 'MESSAGE_UPDATE') {
+            updates[data.d.id] = data.d;
+            setTimeout(() => delete updates[data.d.id], 10000);
         }
     }
 });
