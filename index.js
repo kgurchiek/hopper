@@ -56,7 +56,7 @@ async function messageList(messages) {
         ).slice(0, 5 - imageCount));
         imageCount += images.length;
         return {
-            role: 'user',
+            role: a.author.id == user.id ? 'assistant' : 'user',
             name: a.author.global_name,
             content: (a.content == '' ? [] : [
                 {
@@ -169,11 +169,14 @@ async function handleCommands(commands, users, userMessage) {
         }
         if (command.send) {
             command.send.message = cleanMessage(command.send.message, users);
-            let guild = guilds.find(a => a.channels.find(b => b.id == command.send.channel));
-            if (guild == null) continue;
-            typing(guild.id, command.send.channel);
+            let guild;
+            if (command.send.channel == null) {
+                command.send.channel = userMessage.channel_id;
+                guild = userMessage.guild_id;
+            } else guild = guilds.find(a => a.channels.find(b => b.id == command.send.channel)).id;
+            typing(guild, command.send.channel);
             const typingInterval = setInterval(() => typing(guild.id, command.send.channel), 8000);
-            await sendMessage(command.send.message, null, guild.id, command.send.channel, null, start, typingInterval, userMessage.guild_id == null ? 'dm' : 'mention', userMessage);
+            await sendMessage(command.send.message, null, guild, command.send.channel, null, start, typingInterval, userMessage.guild_id == null ? 'dm' : 'mention', userMessage);
             start = Date.now() - wait;
         }
         if (command.react) {

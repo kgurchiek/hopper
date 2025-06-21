@@ -5,11 +5,7 @@ module.exports = {
         mention: '',
         random: ''
     },
-    uploadChannel: { // private channel to upload images to discord
-        guild: '',
-        channel: ''
-    },
-    groqToken: '',
+    groqToken: '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',
     model: 'meta-llama/llama-4-scout-17b-16e-instruct',
     exclude: [''], // for users that don't want the bot to talk to them
     contentFilter: {
@@ -34,7 +30,7 @@ module.exports = {
                 anyOf: [
                     {
                         nothing: {
-                            description: 'Do nothing, use if you don\'t need or want to say or do anything else in the conversation',
+                            description: 'Do nothing, use if you don\'t need or want to say or do anything else in the conversation, or if you want to wait for more to be said.',
                             type: 'boolean'
                         }
                     },
