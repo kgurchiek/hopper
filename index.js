@@ -58,7 +58,7 @@ async function messageList(messages) {
         return {
             role: a.author.id == user.id ? 'assistant' : 'user',
             name: a.author.global_name,
-            content: (a.content == '' ? [] : [
+            content: a.author.id == user.id ? a.content : (a.content == '' ? [] : [
                 {
                     type: 'text',
                     text: `{ id: ${a.id}, name: ${a.author.global_name}, content: ${JSON.stringify(a.content)} }`
