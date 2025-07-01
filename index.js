@@ -69,7 +69,7 @@ async function messageList(messages) {
 }
 
 async function generate(messages, users) {
-    for (const user of users) messages.filter(a => a.role == 'user' && a.content[0].text != null).forEach(a => a.content[0].text = a.content[0].text.replace(`<@${user.id}>`, `@${user.global_name}`));
+    for (const user of users) messages.filter(a => a.role == 'user' && (a.content[0] || a.content).text != null).forEach(a => (a.content[0] || a.content).text = (a.content[0] || a.content).text.replace(`<@${user.id}>`, `@${user.global_name}`));
     console.log('Prompt:', messages)
     let response = await (await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
