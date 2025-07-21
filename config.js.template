@@ -7,6 +7,7 @@ module.exports = {
     },
     groqToken: '',
     model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+    useImages: false,
     exclude: [''], // for users that don't want the bot to talk to them
     contentFilter: {
         'shit': 's\\*\\*\\*'

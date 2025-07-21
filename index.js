@@ -3,9 +3,9 @@ const gifwrap = require('gifwrap');
 const {
     token,
     webhooks,
-    uploadChannel,
     groqToken,
     model,
+    useImages,
     exclude,
     contentFilter,
     wait,
@@ -41,7 +41,7 @@ function cleanMessage(message, users) {
 async function messageList(messages) {
     let imageCount = 0;
     return await Promise.all(messages.reverse().map(async a => {
-        let images = await Promise.all(a.attachments.map(async b => ({
+        let images = useImages ? await Promise.all(a.attachments.map(async b => ({
             type: 'image_url',
             image_url: {
                 url: b.content_type == 'image/gif' ? `data:image/jpeg;base64,${(await staticGif(b.proxy_url)).toString('base64')}` : b.proxy_url
@@ -53,7 +53,7 @@ async function messageList(messages) {
                     url: b.thumbnail.content_type == 'image/gif' ? `data:image/jpeg;base64,${(await staticGif(b.thumbnail.proxy_url)).toString('base64')}` : b.thumbnail.proxy_url
                 }
             }))
-        ).slice(0, 5 - imageCount));
+        ).slice(0, 5 - imageCount)) : [];
         imageCount += images.length;
         return {
             role: a.author.id == user.id ? 'assistant' : 'user',
