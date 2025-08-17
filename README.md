@@ -5,5 +5,5 @@
   - warning: this is against Discord's terms of service, so do this at your own risk. It is **highly recommended** to create a brand new account dedicated to the bot, do not use an existing account that you care about
 - create a Groq account and get a key from https://console.groq.com/keys
 - rename `config.js.template` to `config.js`
-- put your discord token and groq api key into the `token` and `groqToken` values of the config
+- put your discord token and groq api key into the `token` and `groqToken` values of the config, respectively
 - run the bot with `node index.js`
